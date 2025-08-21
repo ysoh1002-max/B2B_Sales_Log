@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PWA를 위한 메타 태그 추가 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="/manifest.json">
+
+    <title>Win-Win-Log: B2B 영업 통합 다이어리</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 1024px;
+        }
+        .bg-card {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .nav-link.active {
+            color: #3b82f6;
+            border-color: #3b82f6;
+            font-weight: 600;
+        }
+        textarea.handwritten {
+            font-family: 'Inter', sans-serif; /* 필기체 느낌을 위해 */
+            line-height: 1.5;
+            min-height: 200px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        @media (min-width: 768px) {
+            .nav-link:hover {
+                color: #3b82f6;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <!-- 메인 컨테이너 -->
+    <div class="container mx-auto">
+        <!-- 헤더 및 내비게이션 -->
+        <header class="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 md:mb-0">
+                Win-Win-Log
+            </h1>
+            <!-- 탭 내비게이션 -->
+            <nav class="flex space-x-2 md:space-x-4">
+                <a href="#" class="nav-link text-gray-500 px-4 py-2 border-b-2 border-transparent active" data-target="meeting-log">
+                    <span class="text-sm md:text-lg">미팅 기록</span>
+                </a>
+                <a href="#" class="nav-link text-gray-500 px-4 py-2 border-b-2 border-transparent" data-target="records-list">
+                    <span class="text-sm md:text-lg">기록 관리</span>
+                </a>
+                <a href="#" class="nav-link text-gray-500 px-4 py-2 border-b-2 border-transparent" data-target="brainstorming">
+                    <span class="text-sm md:text-lg">브레인스토밍</span>
+                </a>
+                <a href="#" class="nav-link text-gray-500 px-4 py-2 border-b-2 border-transparent" data-target="crm">
+                    <span class="text-sm md:text-lg">고객 관계도</span>
+                </a>
+                <a href="#" class="nav-link text-gray-500 px-4 py-2 border-b-2 border-transparent" data-target="analysis">
+                    <span class="text-sm md:text-lg">성공/실패 분석</span>
+                </a>
+            </nav>
+        </header>
+
+        <!-- 템플릿 콘텐츠 섹션 -->
+        <main class="space-y-12">
+            <!-- 1. 미팅 기록 템플릿 (Create & Update) -->
+            <section id="meeting-log" class="template-section bg-card p-6 md:p-12">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">미팅 기록</h2>
+                <!-- 현재 수정 중인 기록의 ID를 저장하는 숨김 필드 -->
+                <input type="hidden" id="current-record-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- 기본 정보 -->
+                    <div class="bg-gray-50 p-6 rounded-2xl shadow-inner">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="client-name" class="block text-sm md:text-base font-medium text-gray-600">고객사명</label>
+                                <input type="text" id="client-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" placeholder="예: 구글 코리아">
+                            </div>
+                            <div>
+                                <label for="contact-name" class="block text-sm md:text-base font-medium text-gray-600">담당자</label>
+                                <input type="text" id="contact-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" placeholder="예: 홍길동 팀장">
+                            </div>
+                            <div>
+                                <label for="meeting-date" class="block text-sm md:text-base font-medium text-gray-600">미팅 날짜</label>
+                                <input type="date" id="meeting-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                            </div>
+                            <div>
+                                <label for="expected-deal" class="block text-sm md:text-base font-medium text-gray-600">예상 계약 금액 (만원)</label>
+                                <input type="number" id="expected-deal" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" placeholder="예: 5000">
+                            </div>
+                            <div>
+                                <label class="block text-sm md:text-base font-medium text-gray-600">영업 단계</label>
+                                <div class="mt-2 space-y-2">
+                                    <label class="flex items-center"><input type="radio" name="sales-stage" value="lead" class="mr-2 text-blue-500 focus:ring-blue-500"> Lead (리드)</label>
+                                    <label class="flex items-center"><input type="radio" name="sales-stage" value="prospect" class="mr-2 text-blue-500 focus:ring-blue-500"> Prospect (탐색)</label>
+                                    <label class="flex items-center"><input type="radio" name="sales-stage" value="proposal" class="mr-2 text-blue-500 focus:ring-blue-500"> Proposal (제안)</label>
+                                    <label class="flex items-center"><input type="radio" name="sales-stage" value="closing" class="mr-2 text-blue-500 focus:ring-blue-500"> Closing (계약)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 미팅 내용 -->
+                    <div class="space-y-6">
+                        <div>
+                            <label for="pain-point" class="block text-sm md:text-base font-medium text-gray-600">고객의 Pain Point (고통점)</label>
+                            <textarea id="pain-point" rows="4" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="고객이 겪고 있는 핵심 문제를 기록하세요."></textarea>
+                        </div>
+                        <div>
+                            <label for="needs" class="block text-sm md:text-base font-medium text-gray-600">고객의 Needs & Goals (니즈 및 목표)</label>
+                            <textarea id="needs" rows="4" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="고객이 궁극적으로 얻고 싶은 것을 기록하세요."></textarea>
+                        </div>
+                        <div>
+                            <label for="competitor" class="block text-sm md:text-base font-medium text-gray-600">경쟁사 관련 언급</label>
+                            <textarea id="competitor" rows="2" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="경쟁사 이름 및 고객의 평가를 기록하세요."></textarea>
+                        </div>
+                        <div>
+                            <label for="next-action" class="block text-sm md:text-base font-medium text-gray-600">Next Action Plan (다음 행동 계획)</label>
+                            <textarea id="next-action" rows="4" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="미팅 후 해야 할 구체적인 행동을 기록하세요."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button id="save-btn" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg hover:bg-blue-700 transition duration-300">
+                        미팅 기록 저장
+                    </button>
+                    <button id="new-record-btn" class="ml-4 bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg hover:bg-gray-400 transition duration-300">
+                        새 기록 작성
+                    </button>
+                </div>
+            </section>
+            
+            <!-- 2. 기록 관리 템플릿 (Read & Delete) -->
+            <section id="records-list" class="template-section bg-card p-6 md:p-12 hidden">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">기록 관리</h2>
+                <div id="records-container" class="space-y-4">
+                    <!-- 저장된 미팅 기록 목록이 여기에 동적으로 추가됩니다 -->
+                </div>
+                <p id="no-records-message" class="text-gray-500 text-center mt-8 hidden">저장된 미팅 기록이 없습니다.</p>
+            </section>
+
+            <!-- 3. 브레인스토밍 템플릿 -->
+            <section id="brainstorming" class="template-section bg-card p-6 md:p-12 hidden">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">브레인스토밍</h2>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-gray-700">문제 정의 & 핵심 질문</h3>
+                        <p class="text-gray-500 text-sm mb-4">해결해야 할 핵심 문제를 명확히 정의하고, 아이디어를 발산하기 위한 질문을 던지세요.</p>
+                        <textarea id="problem-define" rows="3" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="문제: &#10;질문:"></textarea>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-gray-700">아이디어 발산 (마인드맵)</h3>
+                        <p class="text-gray-500 text-sm mb-4">자유롭게 아이디어를 기록하고, 마인드맵을 그리거나 5W1H 방식으로 사고를 확장하세요.</p>
+                        <textarea id="ideas" rows="10" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="핵심 문제 &#10; ├── 아이디어 1 &#10; │   ├── Why? &#10; │   └── How? &#10; ├── 아이디어 2 &#10; └── ..."></textarea>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2 text-gray-700">SWOT 분석</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 bg-white rounded-lg border">
+                                <h4 class="font-bold mb-2 text-blue-600">강점 (Strengths)</h4>
+                                <textarea rows="3" class="w-full text-sm rounded-md border-gray-300 p-2" placeholder="우리의 강점은?"></textarea>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border">
+                                <h4 class="font-bold mb-2 text-red-600">약점 (Weaknesses)</h4>
+                                <textarea rows="3" class="w-full text-sm rounded-md border-gray-300 p-2" placeholder="우리의 약점은?"></textarea>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border">
+                                <h4 class="font-bold mb-2 text-green-600">기회 (Opportunities)</h4>
+                                <textarea rows="3" class="w-full text-sm rounded-md border-gray-300 p-2" placeholder="시장의 기회는?"></textarea>
+                            </div>
+                            <div class="p-4 bg-white rounded-lg border">
+                                <h4 class="font-bold mb-2 text-gray-600">위협 (Threats)</h4>
+                                <textarea rows="3" class="w-full text-sm rounded-md border-gray-300 p-2" placeholder="경쟁사/시장 위협은?"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 고객 관계도 템플릿 -->
+            <section id="crm" class="template-section bg-card p-6 md:p-12 hidden">
+                <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">고객 관계도</h2>
+                <p class="text-gray-500 mb-6">고객사 내 주요 인물들의 역할과 관계를 시각적으로 파악하세요.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 인물 카드 템플릿 -->
+                    <div class="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-200">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="text-xl">👑</span>
+                            <input type="text" class="w-full text-lg font-bold p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="의사결정권자 (Decision Maker)">
+                        </div>
+                        <input type="text" class="w-full text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="직위: 예) 상무이사">
+                        <textarea rows="2" class="w-full mt-2 text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="핵심 역할과 관심사"></textarea>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-200">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="text-xl">💡</span>
+                            <input type="text" class="w-full text-lg font-bold p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="내부 챔피언 (Champion)">
+                        </div>
+                        <input type="text" class="w-full text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="직위: 예) 구매 담당자">
+                        <textarea rows="2" class="w-full mt-2 text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="우리 편에 서 있는 이유와 협력 방안"></textarea>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-200">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="text-xl">🗣️</span>
+                            <input type="text" class="w-full text-lg font-bold p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="영향력 행사자 (Influencer)">
+                        </div>
+                        <input type="text" class="w-full text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="직위: 예) 실무 팀원">
+                        <textarea rows="2" class="w-full mt-2 text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="그들의 의견이 의사결정에 미치는 영향력"></textarea>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-2xl shadow-inner border border-gray-200">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="text-xl">🚧</span>
+                            <input type="text" class="w-full text-lg font-bold p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="잠재적 반대자 (Blocker)">
+                        </div>
+                        <input type="text" class="w-full text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="직위: 예) 기술 담당자">
+                        <textarea rows="2" class="w-full mt-2 text-sm p-1 rounded-md border-gray-300 focus:border-blue-500" placeholder="반대 이유와 우려 사항"></textarea>
+                            </div>
+                        </div>
+                    </section>
+        
+                    <!-- 5. 성공/실패 분석 템플릿 -->
+                    <section id="analysis" class="template-section bg-card p-6 md:p-12 hidden">
+                        <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">성공/실패 분석</h2>
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2 text-gray-700">사례 개요</h3>
+                                <p class="text-gray-500 text-sm mb-2">어떤 유형의 사례인지 선택하세요.</p>
+                                <div class="mt-2 space-x-4">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="case-type" value="success" class="text-blue-500 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm md:text-base">성공 사례</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="case-type" value="failure" class="text-blue-500 focus:ring-blue-500">
+                                        <span class="ml-2 text-sm md:text-base">실패 사례</span>
+                                    </label>
+                                </div>
+                                <textarea id="case-summary" rows="3" class="handwritten mt-4 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="고객사명, 계약 규모, 주요 이슈를 요약하세요."></textarea>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2 text-gray-700">핵심 원인 분석</h3>
+                                <p class="text-gray-500 text-sm mb-2">성공 또는 실패에 결정적인 영향을 미친 요인들을 분석하세요.</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <textarea id="my-action" rows="5" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="나의 행동: 내가 잘했거나 부족했던 점은?"></textarea>
+                                    <textarea id="customer-side" rows="5" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="고객 측 요인: 고객사의 내부/외부 환경 변화는?"></textarea>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold mb-2 text-gray-700">얻은 인사이트</h3>
+                                <p class="text-gray-500 text-sm mb-2">이번 사례를 통해 배운 가장 중요한 교훈은 무엇인가요?</p>
+                                <textarea id="insight" rows="5" class="handwritten mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-4" placeholder="다음 번에 적용할 구체적인 전략이나 교훈을 기록하세요."></textarea>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        
+            <!-- 조회 모달 -->
+            <div id="view-modal" class="modal-overlay hidden">
+                <div class="modal-content">
+                    <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl" onclick="closeModal()">
+                        &times;
+                    </button>
+                    <h3 class="text-2xl font-bold mb-4">미팅 기록 상세 정보</h3>
+                    <div id="modal-details" class="space-y-4">
+                        <!-- 동적으로 내용이 채워질 영역 -->
+                    </div>
+                </div>
+            </div>
+        
+            <!-- JavaScript -->
+            <script>
+                // Service Worker 등록
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+                            console.log('Service Worker registered with scope:', registration.scope);
+                        }).catch(error => {
+                            console.log('Service Worker registration failed:', error);
+                        });
+                    });
+                }
+
+                document.addEventListener('DOMContentLoaded', () => {
+                    const navLinks = document.querySelectorAll('.nav-link');
+                    const sections = document.querySelectorAll('.template-section');
+                    const saveBtn = document.getElementById('save-btn');
+                    const newRecordBtn = document.getElementById('new-record-btn');
+                    const recordsContainer = document.getElementById('records-container');
+                    const noRecordsMessage = document.getElementById('no-records-message');
+                    const viewModal = document.getElementById('view-modal');
+                    const modalDetails = document.getElementById('modal-details');
+        
+                    const meetingFormElements = {
+                        id: document.getElementById('current-record-id'),
+                        clientName: document.getElementById('client-name'),
+                        contactName: document.getElementById('contact-name'),
+                        meetingDate: document.getElementById('meeting-date'),
+                        expectedDeal: document.getElementById('expected-deal'),
+                        salesStage: document.querySelectorAll('input[name="sales-stage"]'),
+                        painPoint: document.getElementById('pain-point'),
+                        needs: document.getElementById('needs'),
+                        competitor: document.getElementById('competitor'),
+                        nextAction: document.getElementById('next-action')
+                    };
+        
+                    // 탭 전환 로직
+                    navLinks.forEach(link => {
+                        link.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            navLinks.forEach(item => item.classList.remove('active'));
+                            event.currentTarget.classList.add('active');
+                            sections.forEach(section => section.classList.add('hidden'));
+                            const targetId = event.currentTarget.getAttribute('data-target');
+                            document.getElementById(targetId).classList.remove('hidden');
+        
+                            if (targetId === 'records-list') {
+                                loadMeetingsList();
+                            }
+                        });
+                    });
+        
+                    // 저장 버튼 클릭 이벤트
+                    saveBtn.addEventListener('click', () => {
+                        const meetingData = collectMeetingData();
+                        if (meetingData) {
+                            saveMeeting(meetingData);
+                            alert('미팅 기록이 성공적으로 저장되었습니다!');
+                            clearMeetingForm();
+                            document.querySelector('[data-target="records-list"]').click();
+                        } else {
+                            alert('고객사명 또는 담당자명을 입력해주세요.');
+                        }
+                    });
+        
+                    // 새 기록 작성 버튼 클릭 이벤트
+                    newRecordBtn.addEventListener('click', () => {
+                        clearMeetingForm();
+                        alert('새 미팅 기록을 작성합니다.');
+                    });
+        
+                    // 폼 데이터 수집 함수 (ID 유무에 따라 Update 또는 Create 결정)
+                    function collectMeetingData() {
+                        const clientName = meetingFormElements.clientName.value.trim();
+                        const contactName = meetingFormElements.contactName.value.trim();
+        
+                        if (!clientName || !contactName) {
+                            return null;
+                        }
+        
+                        const id = meetingFormElements.id.value || Date.now().toString();
+                        const selectedStage = Array.from(meetingFormElements.salesStage).find(radio => radio.checked)?.value || '';
+        
+                        return {
+                            id: id,
+                            clientName: clientName,
+                            contactName: contactName,
+                            meetingDate: meetingFormElements.meetingDate.value,
+                            expectedDeal: meetingFormElements.expectedDeal.value,
+                            salesStage: selectedStage,
+                            painPoint: meetingFormElements.painPoint.value,
+                            needs: meetingFormElements.needs.value,
+                            competitor: meetingFormElements.competitor.value,
+                            nextAction: meetingFormElements.nextAction.value
+                        };
+                    }
+        
+                    // 폼 필드 초기화 함수
+                    function clearMeetingForm() {
+                        meetingFormElements.id.value = ''; // ID 필드 초기화
+                        meetingFormElements.clientName.value = '';
+                        meetingFormElements.contactName.value = '';
+                        meetingFormElements.meetingDate.value = '';
+                        meetingFormElements.expectedDeal.value = '';
+                        meetingFormElements.painPoint.value = '';
+                        meetingFormElements.needs.value = '';
+                        meetingFormElements.competitor.value = '';
+                        meetingFormElements.nextAction.value = '';
+                        meetingFormElements.salesStage.forEach(radio => radio.checked = false);
+                    }
+        
+                    // 로컬 스토리지에 데이터 저장/업데이트
+                    function saveMeeting(data) {
+                        let meetings = JSON.parse(localStorage.getItem('b2b-meetings')) || {};
+                        meetings[data.id] = data;
+                        localStorage.setItem('b2b-meetings', JSON.stringify(meetings));
+                    }
+        
+                    // 저장된 미팅 목록을 화면에 표시
+                    function loadMeetingsList() {
+                        recordsContainer.innerHTML = '';
+                        const meetings = JSON.parse(localStorage.getItem('b2b-meetings')) || {};
+                        const meetingKeys = Object.keys(meetings).sort().reverse();
+        
+                        if (meetingKeys.length === 0) {
+                            noRecordsMessage.classList.remove('hidden');
+                        } else {
+                            noRecordsMessage.classList.add('hidden');
+                            meetingKeys.forEach(key => {
+                                const meeting = meetings[key];
+                                const recordItem = document.createElement('div');
+                                recordItem.className = 'flex flex-col md:flex-row items-start md:items-center justify-between bg-gray-100 p-4 rounded-xl shadow-sm border border-gray-200';
+                                recordItem.innerHTML = `
+                                    <div>
+                                        <h4 class="font-bold text-lg text-gray-800">${meeting.clientName} - ${meeting.contactName}</h4>
+                                        <p class="text-sm text-gray-500">날짜: ${meeting.meetingDate || '미상'}</p>
+                                    </div>
+                                    <div class="mt-4 md:mt-0 md:ml-4 flex space-x-2">
+                                        <button class="view-btn bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 transition" data-id="${meeting.id}">상세 보기</button>
+                                        <button class="edit-btn bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-yellow-600 transition" data-id="${meeting.id}">수정</button>
+                                        <button class="delete-btn bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition" data-id="${meeting.id}">삭제</button>
+                                    </div>
+                                `;
+                                recordsContainer.appendChild(recordItem);
+                            });
+        
+                            // 동적으로 생성된 버튼에 이벤트 리스너 추가
+                            document.querySelectorAll('.view-btn').forEach(button => {
+                                button.addEventListener('click', (event) => {
+                                    const meetingId = event.target.getAttribute('data-id');
+                                    showDetailsModal(meetingId);
+                                });
+                            });
+        
+                            document.querySelectorAll('.edit-btn').forEach(button => {
+                                button.addEventListener('click', (event) => {
+                                    const meetingId = event.target.getAttribute('data-id');
+                                    loadMeeting(meetingId);
+                                    document.querySelector('[data-target="meeting-log"]').click();
+                                });
+                            });
+        
+                            document.querySelectorAll('.delete-btn').forEach(button => {
+                                button.addEventListener('click', (event) => {
+                                    const meetingId = event.target.getAttribute('data-id');
+                                    if (confirm('정말로 이 기록을 삭제하시겠습니까?')) {
+                                        deleteMeeting(meetingId);
+                                        loadMeetingsList();
+                                    }
+                                });
+                            });
+                        }
+                    }
+        
+                    // 특정 미팅 기록을 폼에 불러오기 (수정 기능)
+                    function loadMeeting(id) {
+                        const meetings = JSON.parse(localStorage.getItem('b2b-meetings'));
+                        if (meetings && meetings[id]) {
+                            const data = meetings[id];
+                            meetingFormElements.id.value = data.id; // ID 저장
+                            meetingFormElements.clientName.value = data.clientName;
+                            meetingFormElements.contactName.value = data.contactName;
+                            meetingFormElements.meetingDate.value = data.meetingDate;
+                            meetingFormElements.expectedDeal.value = data.expectedDeal;
+                            meetingFormElements.painPoint.value = data.painPoint;
+                            meetingFormElements.needs.value = data.needs;
+                            meetingFormElements.competitor.value = data.competitor;
+                            meetingFormElements.nextAction.value = data.nextAction;
+        
+                            meetingFormElements.salesStage.forEach(radio => {
+                                if (radio.value === data.salesStage) {
+                                    radio.checked = true;
+                                }
+                            });
+                        }
+                    }
+        
+                    // 특정 미팅 기록을 삭제
+                    function deleteMeeting(id) {
+                        const meetings = JSON.parse(localStorage.getItem('b2b-meetings'));
+                        if (meetings && meetings[id]) {
+                            delete meetings[id];
+                            localStorage.setItem('b2b-meetings', JSON.stringify(meetings));
+                            alert('기록이 삭제되었습니다.');
+                        }
+                    }
+        
+                    // 상세 보기 모달 표시
+                    function showDetailsModal(id) {
+                        const meetings = JSON.parse(localStorage.getItem('b2b-meetings'));
+                        const data = meetings[id];
+                        if (data) {
+                            modalDetails.innerHTML = `
+                                <p class="text-gray-500 text-sm mb-1">고객사명: <span class="text-gray-800 font-semibold">${data.clientName}</span></p>
+                                <p class="text-gray-500 text-sm mb-1">담당자: <span class="text-gray-800 font-semibold">${data.contactName}</span></p>
+                                <p class="text-gray-500 text-sm mb-1">미팅 날짜: <span class="text-gray-800 font-semibold">${data.meetingDate || '미상'}</span></p>
+                                <p class="text-gray-500 text-sm mb-1">영업 단계: <span class="text-gray-800 font-semibold">${data.salesStage || '미상'}</span></p>
+                                <hr class="my-4">
+                                <h4 class="font-bold text-gray-700 mb-2">고객의 Pain Point</h4>
+                                <p class="whitespace-pre-wrap">${data.painPoint || '없음'}</p>
+                                <h4 class="font-bold text-gray-700 mb-2 mt-4">고객의 Needs & Goals</h4>
+                                <p class="whitespace-pre-wrap">${data.needs || '없음'}</p>
+                                <h4 class="font-bold text-gray-700 mb-2 mt-4">경쟁사 언급</h4>
+                                <p class="whitespace-pre-wrap">${data.competitor || '없음'}</p>
+                                <h4 class="font-bold text-gray-700 mb-2 mt-4">다음 행동 계획</h4>
+                                <p class="whitespace-pre-wrap">${data.nextAction || '없음'}</p>
+                            `;
+                            viewModal.classList.remove('hidden');
+                        }
+                    }
+        
+                    window.closeModal = () => {
+                        viewModal.classList.add('hidden');
+                    };
+                });
+            </script>
+</body>
+</html>
