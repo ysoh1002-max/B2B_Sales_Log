@@ -250,6 +250,9 @@
                     <button class="record-type-btn bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-full" data-type="crm">고객 관계도</button>
                     <button class="record-type-btn bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-full" data-type="analysis">성공/실패 분석</button>
                 </div>
+                <button id="export-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 mb-6 hidden">
+                    CSV로 내보내기
+                </button>
                 <div id="records-container" class="space-y-4">
                     <!-- 저장된 기록 목록이 여기에 동적으로 추가됩니다 -->
                 </div>
@@ -420,6 +423,7 @@
             const modalTitle = document.getElementById('modal-title');
             const recordTypeBtns = document.querySelectorAll('.record-type-btn');
             const salesStageRadios = document.querySelectorAll('input[name="sales-stage"]');
+            const exportBtn = document.getElementById('export-btn');
 
             let currentRecordType = 'meeting'; // 현재 선택된 기록 타입
 
@@ -565,17 +569,10 @@
 
             forms.analysis.saveBtn.addEventListener('click', () => saveForm('analysis'));
             forms.analysis.newBtn.addEventListener('click', () => clearForm('analysis'));
-
-            // 첨부파일 선택 시 파일 목록 표시
-            forms.meeting.inputs.attachments.addEventListener('change', () => {
-                const fileListContainer = forms.meeting.inputs.fileList;
-                fileListContainer.innerHTML = '';
-                Array.from(forms.meeting.inputs.attachments.files).forEach(file => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'text-sm text-gray-600';
-                    fileItem.innerText = `📁 ${file.name}`;
-                    fileListContainer.appendChild(fileItem);
-                });
+            
+            // Export 버튼 이벤트 리스너
+            exportBtn.addEventListener('click', () => {
+                exportToCsv(currentRecordType);
             });
 
             // 인물 카드 생성 함수
@@ -757,8 +754,10 @@
 
                 if (recordKeys.length === 0) {
                     noRecordsMessage.classList.remove('hidden');
+                    exportBtn.classList.add('hidden');
                 } else {
                     noRecordsMessage.classList.add('hidden');
+                    exportBtn.classList.remove('hidden');
                     recordKeys.forEach(key => {
                         const record = records[key];
                         const recordItem = document.createElement('div');
@@ -842,7 +841,7 @@
                         form.inputs.closingOutcome.value = data.closingOutcome;
                         form.inputs.additionalNotes.value = data.additionalNotes;
                         
-                        // 첨부파일 목록 로드
+                        // 첨부파일 목록 로드 (파일은 로컬에 없으므로 이름만 표시)
                         form.inputs.fileList.innerHTML = '';
                         if (data.attachments && data.attachments.length > 0) {
                             data.attachments.forEach(fileName => {
@@ -880,7 +879,7 @@
                     alert('기록이 삭제되었습니다.');
                 }
             }
-            
+
             // 상세 보기 모달 표시
             function showDetailsModal(id, type) {
                 const key = `b2b-${type}-records`;
@@ -986,4 +985,3 @@
     </script>
 </body>
 </html>
-
