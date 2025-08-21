@@ -63,19 +63,38 @@
             position: relative;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
-        @media (min-width: 768px) {
-            .nav-link:hover {
-                color: #3b82f6;
-            }
+        .hidden {
+            display: none;
+        }
+        #roi-page {
+            min-height: 80vh;
+        }
+        .roi-input-field {
+            margin-bottom: 1rem;
+        }
+        .roi-input-field label {
+            font-weight: 500;
+        }
+        .roi-input-field input {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+        }
+        .chart-container {
+            position: relative;
+            height: 40vh;
+            margin-bottom: 2rem;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
 </head>
 <body class="p-4 md:p-8">
-    <!-- 메인 컨테이너 -->
-    <div class="container mx-auto">
+    <!-- 메인 앱 컨테이너 -->
+    <div id="main-app" class="container mx-auto">
         <!-- 헤더 및 내비게이션 -->
         <header class="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 md:mb-0">
+            <h1 id="main-logo" class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 md:mb-0 cursor-pointer">
                 Win-Win-Log
             </h1>
             <!-- 탭 내비게이션 -->
@@ -387,6 +406,65 @@
         </main>
     </div>
 
+    <!-- ROI 계산 페이지 -->
+    <div id="roi-page" class="hidden fixed top-0 left-0 w-full h-full bg-gray-50 p-4 md:p-8 overflow-y-auto">
+        <div class="container mx-auto">
+            <header class="flex items-center justify-between mb-8">
+                <button id="back-to-main-btn" class="text-gray-600 text-2xl font-bold hover:text-gray-900 transition-colors">&larr; 뒤로가기</button>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">ROI 계산기</h1>
+            </header>
+            <div class="bg-card p-6 md:p-12">
+                <div class="mb-8">
+                    <label for="roi-solution-select" class="block text-lg font-semibold text-gray-700 mb-2">솔루션 선택</label>
+                    <select id="roi-solution-select" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 text-lg">
+                        <option value="">솔루션을 선택하세요</option>
+                        <option value="MES">MES</option>
+                        <option value="EES">EES (설비 효율)</option>
+                        <option value="EMS">EMS (설비 보전)</option>
+                        <option value="EAP">EAP (TC)</option>
+                    </select>
+                </div>
+
+                <div id="roi-inputs" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 hidden">
+                    <!-- 입력 필드가 여기에 동적으로 추가됩니다 -->
+                </div>
+
+                <!-- 다년 ROI 계산 기간 입력 -->
+                <div id="roi-period-input" class="mb-8 hidden">
+                    <label for="calculation-period" class="block text-lg font-semibold text-gray-700 mb-2">ROI 계산 기간 (년)</label>
+                    <input type="number" id="calculation-period" value="5" min="1" max="10" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 text-lg">
+                </div>
+                
+                <div id="roi-results" class="hidden">
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">ROI 분석 결과</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                        <div>
+                            <p class="text-gray-700 mb-2">총 투자 비용: <span id="roi-cost" class="font-bold text-blue-600">0원</span></p>
+                            <p class="text-gray-700">연간 예상 절감 효과: <span id="annual-savings" class="font-bold text-green-600">0원</span></p>
+                            <p class="text-gray-700 mt-4 font-bold">투자금 회수 시점: <span id="payback-period" class="text-indigo-600">계산 중...</span></p>
+                        </div>
+                        <div class="bg-gray-100 p-4 rounded-xl flex flex-col justify-center items-center">
+                            <p class="text-xl text-gray-700 font-semibold mb-1">총 ROI (<span id="roi-period-text">1년</span>)</p>
+                            <span id="final-roi" class="text-4xl font-extrabold text-indigo-600">0.00%</span>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="roiChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-8">
+                    <button id="calculate-roi-btn" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg hover:bg-blue-700 transition duration-300">
+                        ROI 계산
+                    </button>
+                    <button id="roi-reset-btn" class="ml-4 bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg hover:bg-gray-400 transition duration-300">
+                        초기화
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 조회 모달 -->
     <div id="view-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -424,8 +502,44 @@
             const recordTypeBtns = document.querySelectorAll('.record-type-btn');
             const salesStageRadios = document.querySelectorAll('input[name="sales-stage"]');
             const exportBtn = document.getElementById('export-btn');
-
+            const mainLogo = document.getElementById('main-logo');
+            const mainApp = document.getElementById('main-app');
+            const roiPage = document.getElementById('roi-page');
+            const backToMainBtn = document.getElementById('back-to-main-btn');
+            
             let currentRecordType = 'meeting'; // 현재 선택된 기록 타입
+            let roiChart = null; // 차트 인스턴스
+
+            // ROI 계산을 위한 입력 필드 데이터
+            const roiData = {
+                MES: [
+                    { label: "생산 효율 개선율 (%)", key: "efficiency", value: 10, type: "number" },
+                    { label: "월 생산량 (단위)", key: "monthlyProduction", value: 10000, type: "number" },
+                    { label: "단위 생산 비용 (원)", key: "unitCost", value: 500, type: "number" },
+                    { label: "솔루션 도입 비용 (원)", key: "solutionCost", value: 20000000, type: "number" },
+                    { label: "연간 유지보수 비용 (원)", key: "maintenanceCost", value: 3000000, type: "number" }
+                ],
+                EES: [
+                    { label: "설비 가동률 개선율 (%)", key: "uptime", value: 5, type: "number" },
+                    { label: "월 가동 시간 (시간)", key: "monthlyUptime", value: 200, type: "number" },
+                    { label: "시간당 생산량 (단위)", key: "hourlyProduction", value: 50, type: "number" },
+                    { label: "단위 생산 이익 (원)", key: "unitProfit", value: 1000, type: "number" },
+                    { label: "솔루션 도입 비용 (원)", key: "solutionCost", value: 15000000, type: "number" },
+                    { label: "연간 유지보수 비용 (원)", key: "maintenanceCost", value: 2000000, type: "number" }
+                ],
+                EMS: [
+                    { label: "예지 보전으로 인한 절감 효과 (%)", key: "maintenanceSavings", value: 15, type: "number" },
+                    { label: "연간 보전 비용 (원)", key: "annualMaintenanceCost", value: 50000000, type: "number" },
+                    { label: "솔루션 도입 비용 (원)", key: "solutionCost", value: 25000000, type: "number" },
+                    { label: "연간 유지보수 비용 (원)", key: "maintenanceCost", value: 4000000, type: "number" }
+                ],
+                EAP: [
+                    { label: "TC 개선율 (%)", key: "tcImprovement", value: 10, type: "number" },
+                    { label: "연간 TC 지출 비용 (원)", key: "annualTcCost", value: 30000000, type: "number" },
+                    { label: "솔루션 도입 비용 (원)", key: "solutionCost", value: 10000000, type: "number" },
+                    { label: "연간 유지보수 비용 (원)", key: "maintenanceCost", value: 1500000, type: "number" }
+                ]
+            };
 
             const forms = {
                 meeting: {
@@ -503,7 +617,7 @@
             });
 
             // 초기 로드 시 폼 필드 설정
-            updateMeetingFormFields(document.querySelector('input[name="sales-stage"]:checked').value);
+            updateMeetingFormFields(document.querySelector('input[name="sales-stage"][value="discovery"]').value);
             
             function updateMeetingFormFields(stage) {
                 const allFields = document.querySelectorAll('#meeting-log .stage-fields');
@@ -537,6 +651,24 @@
                     }
                 });
             });
+            
+            // Win-Win-Log 로고 클릭 이벤트 (ROI 페이지 전환)
+            mainLogo.addEventListener('click', () => {
+                mainApp.classList.add('hidden');
+                roiPage.classList.remove('hidden');
+            });
+            
+            // ROI 페이지에서 메인으로 돌아가기
+            backToMainBtn.addEventListener('click', () => {
+                mainApp.classList.remove('hidden');
+                roiPage.classList.add('hidden');
+                // ROI 계산기 초기화
+                document.getElementById('roi-solution-select').value = '';
+                document.getElementById('roi-inputs').innerHTML = '';
+                document.getElementById('roi-inputs').classList.add('hidden');
+                document.getElementById('roi-results').classList.add('hidden');
+            });
+
 
             // 기록 타입 버튼 클릭 로직
             recordTypeBtns.forEach(btn => {
@@ -981,6 +1113,194 @@
 
             // 초기 로드 시 미팅 기록 목록을 보여줍니다.
             loadRecordsList('meeting');
+            
+            // ROI 계산기 로직
+            const roiSolutionSelect = document.getElementById('roi-solution-select');
+            const roiInputsContainer = document.getElementById('roi-inputs');
+            const roiPeriodInput = document.getElementById('roi-period-input');
+            const roiResults = document.getElementById('roi-results');
+            const calculateRoiBtn = document.getElementById('calculate-roi-btn');
+            const roiResetBtn = document.getElementById('roi-reset-btn');
+            const roiPeriodText = document.getElementById('roi-period-text');
+            const paybackPeriodEl = document.getElementById('payback-period');
+            const roiCostEl = document.getElementById('roi-cost');
+            const annualSavingsEl = document.getElementById('annual-savings');
+            
+            roiSolutionSelect.addEventListener('change', (e) => {
+                const solution = e.target.value;
+                roiInputsContainer.innerHTML = '';
+                if (solution) {
+                    roiData[solution].forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'roi-input-field';
+                        div.innerHTML = `
+                            <label for="${item.key}">${item.label}</label>
+                            <input type="${item.type}" id="${item.key}" value="${item.value}" class="block w-full text-lg rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 mt-1">
+                        `;
+                        roiInputsContainer.appendChild(div);
+                    });
+                    roiInputsContainer.classList.remove('hidden');
+                    roiPeriodInput.classList.remove('hidden');
+                } else {
+                    roiInputsContainer.classList.add('hidden');
+                    roiPeriodInput.classList.add('hidden');
+                }
+                roiResults.classList.add('hidden'); // 솔루션 변경 시 결과 숨기기
+            });
+
+            calculateRoiBtn.addEventListener('click', () => {
+                const solution = roiSolutionSelect.value;
+                if (!solution) {
+                    alert("솔루션을 선택해주세요.");
+                    return;
+                }
+
+                const period = parseInt(document.getElementById('calculation-period').value);
+                if (isNaN(period) || period < 1 || period > 10) {
+                    alert("계산 기간은 1년에서 10년 사이의 숫자를 입력해주세요.");
+                    return;
+                }
+
+                let annualSavings = 0;
+                let initialCost = 0;
+                let annualMaintenanceCost = 0;
+
+                const inputValues = {};
+                roiData[solution].forEach(item => {
+                    inputValues[item.key] = parseFloat(document.getElementById(item.key).value);
+                });
+
+                initialCost = inputValues.solutionCost;
+                annualMaintenanceCost = inputValues.maintenanceCost || 0;
+
+
+                if (solution === "MES") {
+                    annualSavings = (inputValues.monthlyProduction * inputValues.unitCost * (inputValues.efficiency / 100)) * 12;
+                } else if (solution === "EES") {
+                    annualSavings = (inputValues.monthlyUptime * (inputValues.uptime / 100)) * inputValues.hourlyProduction * inputValues.unitProfit * 12;
+                } else if (solution === "EMS") {
+                    annualSavings = inputValues.annualMaintenanceCost * (inputValues.maintenanceSavings / 100);
+                } else if (solution === "EAP") {
+                    annualSavings = inputValues.annualTcCost * (inputValues.tcImprovement / 100);
+                }
+                
+                const cumulativeSavings = [];
+                const cumulativeCost = [];
+                const cumulativeRoi = [];
+                let paybackPeriod = "계산 불가";
+                
+                let currentTotalCost = 0;
+                let currentTotalSavings = 0;
+                let paybackFound = false;
+
+                for (let i = 1; i <= period; i++) {
+                    // 첫 해에만 초기 도입 비용을 포함
+                    currentTotalCost = initialCost + (annualMaintenanceCost * i);
+                    currentTotalSavings = annualSavings * i;
+                    
+                    cumulativeCost.push(currentTotalCost);
+                    cumulativeSavings.push(currentTotalSavings);
+                    
+                    const currentRoi = ((currentTotalSavings - currentTotalCost) / currentTotalCost) * 100;
+                    cumulativeRoi.push(currentRoi);
+                    
+                    if (currentTotalSavings >= currentTotalCost && !paybackFound) {
+                        const monthsToPayback = (initialCost / (annualSavings - annualMaintenanceCost)) * 12;
+                        const years = Math.floor(monthsToPayback / 12);
+                        const months = Math.round(monthsToPayback % 12);
+                        paybackPeriod = years > 0 ? `${years}년 ${months}개월` : `${months}개월`;
+                        paybackFound = true;
+                    }
+                }
+
+                if (annualSavings <= annualMaintenanceCost) {
+                    paybackPeriod = "투자금 회수 불가능";
+                }
+                
+                const finalRoiValue = cumulativeRoi[period - 1] || 0;
+                const finalCost = cumulativeCost[period-1] || 0;
+                
+                roiCostEl.innerText = `${finalCost.toLocaleString()}원`;
+                annualSavingsEl.innerText = `${annualSavings.toLocaleString()}원`;
+                roiPeriodText.innerText = `${period}년`;
+                document.getElementById('final-roi').innerText = `${finalRoiValue.toFixed(2)}%`;
+                paybackPeriodEl.innerText = paybackPeriod;
+                
+                roiResults.classList.remove('hidden');
+                drawRoiChart(cumulativeSavings, cumulativeCost, period);
+            });
+            
+            roiResetBtn.addEventListener('click', () => {
+                roiSolutionSelect.value = '';
+                roiInputsContainer.innerHTML = '';
+                roiInputsContainer.classList.add('hidden');
+                roiPeriodInput.classList.add('hidden');
+                roiResults.classList.add('hidden');
+            });
+            
+            function drawRoiChart(cumulativeSavings, cumulativeCost, period) {
+                const ctx = document.getElementById('roiChart').getContext('2d');
+                if (roiChart) {
+                    roiChart.destroy(); // 기존 차트가 있으면 삭제
+                }
+                
+                const years = Array.from({ length: period }, (_, i) => `${i + 1}년`);
+
+                roiChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: years,
+                        datasets: [
+                            {
+                                label: '누적 투자 비용',
+                                data: cumulativeCost,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                borderWidth: 2,
+                                fill: false,
+                                pointRadius: 5,
+                                pointHoverRadius: 8,
+                            },
+                            {
+                                label: '누적 절감 효과',
+                                data: cumulativeSavings,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 5,
+                                pointHoverRadius: 8,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true
+                            },
+                            title: {
+                                display: true,
+                                text: '연도별 투자금 회수 분석',
+                                font: { size: 18 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString() + '원';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
         });
     </script>
 </body>
