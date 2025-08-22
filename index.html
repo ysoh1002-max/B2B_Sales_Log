@@ -220,7 +220,6 @@
                             </div>
                         </div>
 
-                        <!-- 미팅 내용 -->
                         <div class="space-y-6">
                             <div class="stage-fields" data-stage="discovery proposal closing">
                                 <label for="key-questions" class="block text-sm md:text-base font-medium text-gray-600">핵심 질문 기록</label>
@@ -321,7 +320,7 @@
             </section>
             
             <!-- 2. 기록 관리 탭 (CRUD) -->
-            <section id="records-list" class="template-section bg-card p-6 md:p-12 hidden">
+            <section id="records-list" class="template-section bg-card p-6 md:p-12">
                 <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">기록 관리</h2>
                 <div class="flex flex-wrap space-x-2 md:space-x-4 mb-8">
                     <button class="record-type-btn bg-blue-600 text-white font-semibold py-2 px-4 rounded-full" data-type="meeting">미팅 기록</button>
@@ -329,9 +328,15 @@
                     <button class="record-type-btn bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-full" data-type="crm">고객 관계도</button>
                     <button class="record-type-btn bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-full" data-type="analysis">성공/실패 분석</button>
                 </div>
-                <button id="export-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 mb-6 hidden">
-                    CSV로 내보내기
-                </button>
+                <div class="flex flex-wrap items-center space-x-4 mb-6">
+                    <button id="export-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300">
+                        CSV로 내보내기
+                    </button>
+                    <input type="file" id="import-file-input" accept=".csv" class="hidden">
+                    <button id="import-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300">
+                        CSV 가져오기
+                    </button>
+                </div>
                 <div id="records-container" class="space-y-4">
                     <!-- 저장된 기록 목록이 여기에 동적으로 추가됩니다 -->
                 </div>
@@ -415,7 +420,7 @@
                     </button>
                 </div>
             </section>
-        
+
             <!-- 5. 성공/실패 분석 템플릿 -->
             <section id="analysis" class="template-section bg-card p-6 md:p-12 hidden">
                 <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800">성공/실패 분석</h2>
@@ -783,11 +788,11 @@
 
             // 저장 버튼 이벤트 리스너
             document.getElementById('save-btn-meeting').addEventListener('click', () => {
-                const type = document.querySelector('input[name="meeting-type"]:checked').value;
+                const type = document.querySelector('input[name="meeting-type"]:checked').value === 'customer' ? 'meeting' : 'internal';
                 saveForm(type);
             });
             document.getElementById('new-record-btn-meeting').addEventListener('click', () => {
-                const type = document.querySelector('input[name="meeting-type"]:checked').value;
+                const type = document.querySelector('input[name="meeting-type"]:checked').value === 'customer' ? 'meeting' : 'internal';
                 clearForm(type);
             });
 
@@ -802,8 +807,153 @@
             
             // Export 버튼 이벤트 리스너
             exportBtn.addEventListener('click', () => {
-                exportToCsv(currentRecordType);
+                exportToCsv();
             });
+
+            // Import 버튼 이벤트 리스너
+            document.getElementById('import-btn').addEventListener('click', () => {
+                document.getElementById('import-file-input').click();
+            });
+
+            document.getElementById('import-file-input').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        importFromCsv(e.target.result);
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            // CSV Export 함수
+            function exportToCsv() {
+                const dataToExport = {
+                    meeting: JSON.parse(localStorage.getItem('b2b-meeting-records')) || {},
+                    internal: JSON.parse(localStorage.getItem('b2b-internal-records')) || {},
+                    brainstorming: JSON.parse(localStorage.getItem('b2b-brainstorming-records')) || {},
+                    crm: JSON.parse(localStorage.getItem('b2b-crm-records')) || {},
+                    analysis: JSON.parse(localStorage.getItem('b2b-analysis-records')) || {}
+                };
+
+                const allRecords = [];
+                for (const type in dataToExport) {
+                    for (const id in dataToExport[type]) {
+                        const record = dataToExport[type][id];
+                        // CSV에 적합하도록 JSON 데이터 가공
+                        const flatRecord = {
+                            id: record.id,
+                            type: record.type,
+                            timestamp: record.timestamp,
+                            clientName: record.clientName,
+                            contactName: record.contactName || '',
+                            authorName: record.authorName || '',
+                            meetingDate: record.meetingDate || '',
+                            expectedDeal: record.expectedDeal || '',
+                            salesStage: record.salesStage || '',
+                            desiredSystem: record.desiredSystem || '',
+                            implementationTimeline: record.implementationTimeline || '',
+                            decisionMethod: record.decisionMethod || '',
+                            meetingMood: record.meetingMood ? record.meetingMood.join(';') : '',
+                            keyQuestions: record.keyQuestions ? record.keyQuestions.replace(/"/g, '""') : '',
+                            painPoint: record.painPoint ? record.painPoint.replace(/"/g, '""') : '',
+                            needs: record.needs ? record.needs.replace(/"/g, '""') : '',
+                            competitor: record.competitor ? record.competitor.replace(/"/g, '""') : '',
+                            nextAction: record.nextAction ? record.nextAction.replace(/"/g, '""') : '',
+                            proposalDetails: record.proposalDetails ? record.proposalDetails.replace(/"/g, '""') : '',
+                            customerObjections: record.customerObjections ? record.customerObjections.replace(/"/g, '""') : '',
+                            closingOutcome: record.closingOutcome ? record.closingOutcome.replace(/"/g, '""') : '',
+                            additionalNotes: record.additionalNotes ? record.additionalNotes.replace(/"/g, '""') : '',
+                            attachments: record.attachments ? record.attachments.join(';') : '',
+                            meetingAgenda: record.meetingAgenda || '',
+                            participants: record.participants || '',
+                            meetingNotes: record.meetingNotes ? record.meetingNotes.replace(/"/g, '""') : '',
+                            crmPeople: record.people ? JSON.stringify(record.people).replace(/"/g, '""') : '',
+                            caseType: record.caseType || '',
+                            caseSummary: record.caseSummary ? record.caseSummary.replace(/"/g, '""') : '',
+                            myAction: record.myAction ? record.myAction.replace(/"/g, '""') : '',
+                            customerSide: record.customerSide ? record.customerSide.replace(/"/g, '""') : '',
+                            insight: record.insight ? record.insight.replace(/"/g, '""') : ''
+                        };
+                        allRecords.push(flatRecord);
+                    }
+                }
+                
+                if (allRecords.length === 0) {
+                    alert('내보낼 기록이 없습니다.');
+                    return;
+                }
+
+                const headers = Object.keys(allRecords[0]);
+                const csvContent = [
+                    headers.join(','),
+                    ...allRecords.map(row => headers.map(header => {
+                        const value = row[header] !== undefined && row[header] !== null ? row[header] : '';
+                        return `"${value}"`;
+                    }).join(','))
+                ].join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `Win-Win-Log_${new Date().toISOString().slice(0, 10)}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+
+            // CSV Import 함수
+            function importFromCsv(csvText) {
+                const lines = csvText.split('\n');
+                if (lines.length < 2) {
+                    alert('유효한 CSV 파일이 아닙니다.');
+                    return;
+                }
+                const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+                const newRecords = {};
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g).map(v => v.replace(/"/g, ''));
+                    const record = {};
+                    headers.forEach((header, index) => {
+                        let value = values[index];
+                        if (value === 'true') value = true;
+                        if (value === 'false') value = false;
+                        if (header === 'meetingMood' || header === 'attachments') {
+                            value = value ? value.split(';') : [];
+                        } else if (header === 'crmPeople' && value) {
+                            value = JSON.parse(value);
+                        }
+                        record[header] = value;
+                    });
+                    const type = record.type;
+                    if (!newRecords[type]) {
+                        newRecords[type] = {};
+                    }
+                    newRecords[type][record.id] = record;
+                }
+
+                if (Object.keys(newRecords).length > 0) {
+                    if (confirm('기존 기록에 새로운 기록을 추가하시겠습니까? (덮어쓰기가 아닌 추가됩니다.)')) {
+                        for (const type in newRecords) {
+                            const key = `b2b-${type}-records`;
+                            let existingRecords = JSON.parse(localStorage.getItem(key)) || {};
+                            existingRecords = { ...existingRecords, ...newRecords[type] };
+                            localStorage.setItem(key, JSON.stringify(existingRecords));
+                        }
+                        alert('기록을 성공적으로 가져왔습니다!');
+                        loadRecordsList(currentRecordType);
+                    }
+                } else {
+                    alert('가져올 유효한 기록이 없습니다.');
+                }
+            }
 
             // 인물 카드 생성 함수
             function createPersonCardHtml(person = {}) {
@@ -1071,45 +1221,45 @@
                     form.id.value = data.id;
                     if (type === 'meeting') {
                         document.querySelector('input[name="meeting-type"][value="customer"]').checked = true;
-                        forms.meeting.inputs.clientName.value = data.clientName;
-                        forms.meeting.inputs.contactName.value = data.contactName;
-                        forms.meeting.inputs.authorName.value = data.authorName;
-                        forms.meeting.inputs.meetingDate.value = data.meetingDate;
-                        forms.meeting.inputs.expectedDeal.value = data.expectedDeal;
-                        forms.meeting.inputs.salesStage.forEach(radio => radio.checked = radio.value === data.salesStage);
-                        forms.meeting.inputs.desiredSystem.value = data.desiredSystem;
-                        forms.meeting.inputs.implementationTimeline.value = data.implementationTimeline;
-                        forms.meeting.inputs.decisionMethod.value = data.decisionMethod;
-                        forms.meeting.inputs.meetingMood.forEach(checkbox => checkbox.checked = data.meetingMood.includes(checkbox.value));
-                        forms.meeting.inputs.keyQuestions.value = data.keyQuestions;
-                        forms.meeting.inputs.painPoint.value = data.painPoint;
-                        forms.meeting.inputs.needs.value = data.needs;
-                        forms.meeting.inputs.competitor.value = data.competitor;
-                        forms.meeting.inputs.nextAction.value = data.nextAction;
-                        forms.meeting.inputs.proposalDetails.value = data.proposalDetails;
-                        forms.meeting.inputs.customerObjections.value = data.customerObjections;
-                        forms.meeting.inputs.closingOutcome.value = data.closingOutcome;
-                        forms.meeting.inputs.additionalNotes.value = data.additionalNotes;
+                        form.inputs.clientName.value = data.clientName;
+                        form.inputs.contactName.value = data.contactName;
+                        form.inputs.authorName.value = data.authorName;
+                        form.inputs.meetingDate.value = data.meetingDate;
+                        form.inputs.expectedDeal.value = data.expectedDeal;
+                        form.inputs.salesStage.forEach(radio => radio.checked = radio.value === data.salesStage);
+                        form.inputs.desiredSystem.value = data.desiredSystem;
+                        form.inputs.implementationTimeline.value = data.implementationTimeline;
+                        form.inputs.decisionMethod.value = data.decisionMethod;
+                        form.inputs.meetingMood.forEach(checkbox => checkbox.checked = data.meetingMood.includes(checkbox.value));
+                        form.inputs.keyQuestions.value = data.keyQuestions;
+                        form.inputs.painPoint.value = data.painPoint;
+                        form.inputs.needs.value = data.needs;
+                        form.inputs.competitor.value = data.competitor;
+                        form.inputs.nextAction.value = data.nextAction;
+                        form.inputs.proposalDetails.value = data.proposalDetails;
+                        form.inputs.customerObjections.value = data.customerObjections;
+                        form.inputs.closingOutcome.value = data.closingOutcome;
+                        form.inputs.additionalNotes.value = data.additionalNotes;
                         
-                        forms.meeting.inputs.fileList.innerHTML = '';
+                        form.inputs.fileList.innerHTML = '';
                         if (data.attachments && data.attachments.length > 0) {
                             data.attachments.forEach(fileName => {
                                 const fileItem = document.createElement('div');
                                 fileItem.className = 'text-sm text-gray-600';
                                 fileItem.innerText = `📁 ${fileName}`;
-                                forms.meeting.inputs.fileList.appendChild(fileItem);
+                                form.inputs.fileList.appendChild(fileItem);
                             });
                         }
                         updateMeetingFormFields(data.salesStage);
                     } else if (type === 'internal') {
                         document.querySelector('input[name="meeting-type"][value="internal"]').checked = true;
-                        forms.internal.inputs.clientName.value = data.clientName;
-                        forms.internal.inputs.meetingAgenda.value = data.meetingAgenda;
-                        forms.internal.inputs.authorName.value = data.authorName;
-                        forms.internal.inputs.meetingDate.value = data.meetingDate;
-                        forms.internal.inputs.participants.value = data.participants;
-                        forms.internal.inputs.meetingNotes.value = data.meetingNotes;
-                        forms.internal.inputs.additionalNotes.value = data.additionalNotes;
+                        form.inputs.clientName.value = data.clientName;
+                        form.inputs.meetingAgenda.value = data.meetingAgenda;
+                        form.inputs.authorName.value = data.authorName;
+                        form.inputs.meetingDate.value = data.meetingDate;
+                        form.inputs.participants.value = data.participants;
+                        form.inputs.meetingNotes.value = data.meetingNotes;
+                        form.inputs.additionalNotes.value = data.additionalNotes;
                     } else if (type === 'crm') {
                         form.inputs.clientName.value = data.clientName;
                         form.inputs.people.innerHTML = '';
@@ -1344,7 +1494,7 @@
                     const currentRoi = ((currentYearSavings - currentTotalCost) / currentTotalCost) * 100;
                     cumulativeRoi.push(currentRoi);
                     
-                    if (currentYearSavings >= currentTotalCost && !paybackFound) {
+                    if (currentTotalSavings >= currentTotalCost && !paybackFound) {
                         const netAnnualBenefit = annualSavings - annualMaintenanceCost;
                         const years = netAnnualBenefit > 0 ? initialCost / netAnnualBenefit : Infinity;
                         
